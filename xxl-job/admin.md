@@ -32,20 +32,9 @@ JobTriggerPoolHelper
 
 调度中心启动流程：
 
-1.XxlJobAdminConfig初始化时，新建xxlJobScheduler,并初始化
+1.XxlJobAdminConfig初始化时，读取配置文件，新建xxlJobScheduler,并初始化
 
-```
-private XxlJobScheduler xxlJobScheduler;
-
-@Override
-public void afterPropertiesSet() throws Exception {
-    adminConfig = this;
-    xxlJobScheduler = new XxlJobScheduler();
-    xxlJobScheduler.init();
-}
-```
-
-2.XxlJobScheduler.init()
+2.XxlJobSchedule初始化过程，几个线程启动
 
 ```
 public void init() throws Exception {
@@ -76,7 +65,7 @@ public void init() throws Exception {
     JobLogReportHelper.getInstance().start();
 
     //从数据库获取job的线程，两个线程，从数据库读取任务的线程scheduleThread，执行间隔短的任务的线程ringThread。
-    scheduleThread,每次最多从数据库中取五秒内内要执行的(xxl.job.triggerpool.fast.max+xxl.job.triggerpool.fast.slow)*20个任务，默认是(200+200)*20
+    scheduleThread,每次最多从数据库中取五秒内内要执行的(xxl.job.triggerpool.fast.max+xxl.job.triggerpool.fast.slow)*20个任务，默认是(200+100)*20
     条任务。
     遍历这些任务，如果(执行时间+5s)小于当前时间，即错过了上次执行，如果调度过期策略是立即执行一次，更新上次执行时间下次执行时间；
     如果过了执行时间，但是还没超过5s，就调用JobTriggerPoolHelper.addTrigger(),将任务添加到执行线程池，并更新时间，如果更新后的下次执行时间还在五秒钟之内，即执行间隔小于5s,则将其推给ringThread，然后再次更新时间。
@@ -94,80 +83,11 @@ public void init() throws Exception {
 
 
 
-XxlJobTrigger
+一批任务调度流程，JobScheduleHelper每隔4-5秒查询6000个要执行的任务，然后根据下次应执行时间与当前时间的关系，丢弃、直接推送到JobLogReportHelper等待执行、或者放入时间环中等待推送到JobLogReportHelper执行。然后更新下次执行时间。
 
-具体负责调用执行器的类
+JobLogReportHelper中有两个线程池，一个执行耗时短的任务fastTreiggerPool. 一个执行耗时长的任务slowTriggerPool。
 
-方法：
-
-```
-public static void trigger(int jobId, TriggerTypeEnum triggerType, int failRetryCount, String executorShardingParam, String executorParam)
-```
-
-传入，任务id,任务类型(corn表达式，手动触发，失败重试，子任务)，剩余重试次数(>0使用，否则使用job的数据)，executorShardingParam(分片任务使用)，executorParam(执行参数,不为空时使用，为空时使用job的数据)
-
-流程：根据任务ID获取任务数据，执行器信息，调用processTrigger
-
-
-
-```
-private static void processTrigger(XxlJobGroup group, XxlJobInfo jobInfo, int finalFailRetryCount, TriggerTypeEnum triggerType, int index, int total)
-```
-
-传入，执行器数据，任务数据，重试次数,任务类型，分片下标，分片总数
-
-流程：查询路由策略，阻塞策略，新建日志。初始化trigger参数。根据路由策略，获取执行器地址信息；
-
-调用runExecutor，记录日志信息
-
-
-
-```
-public static ReturnT<String> runExecutor(TriggerParam triggerParam, String address)
-```
-
-传入，trigger参数，执行器地址
-
-调用XxlJobScheduler.getExecutorBiz获取ExecutorBiz，执行ExecutorBiz.run
-
-```
-public static ExecutorBiz getExecutorBiz(String address) throws Exception {
-    // valid
-    if (address==null || address.trim().length()==0) {
-        return null;
-    }
-
-    // load-cache
-    address = address.trim();
-    ExecutorBiz executorBiz = executorBizRepository.get(address);
-    if (executorBiz != null) {
-        return executorBiz;
-    }
-
-    // set-cache
-    XxlRpcReferenceBean referenceBean = new XxlRpcReferenceBean();
-    referenceBean.setClient(NettyHttpClient.class);
-    referenceBean.setSerializer(HessianSerializer.class);
-    referenceBean.setCallType(CallType.SYNC);
-    referenceBean.setLoadBalance(LoadBalance.ROUND);
-    referenceBean.setIface(ExecutorBiz.class);
-    referenceBean.setVersion(null);
-    referenceBean.setTimeout(3000);
-    referenceBean.setAddress(address);
-    referenceBean.setAccessToken(XxlJobAdminConfig.getAdminConfig().getAccessToken());
-    referenceBean.setInvokeCallback(null);
-    referenceBean.setInvokerFactory(null);
-
-    executorBiz = (ExecutorBiz) referenceBean.getObject();
-
-    executorBizRepository.put(address, executorBiz);
-    return executorBiz;
-}
-```
-
-从map中根据地址获取对应的executorBiz，如果没有就新建，然后存入map并返回。
-
-然后执行executorBizClient.run,向执行器发送http请求。
+线程池执行线程调用XxlJobTrigger.trigger，根据路由策略向对应的执行器发送执行请求，同时记录jobLog，打印日志。
 
 
 
