@@ -180,6 +180,8 @@ Java判断对象是否存活使用的是可达性分析，通过判断是否有G
 
 3.大对象直接进入老年代，避免来回复制，-XX:PretennureSizeThreshold
 
+4.young  gc之后存活的对象太多，超过survivor区大小
+
 
 
 **Old Gc触发条件**
