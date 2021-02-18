@@ -67,7 +67,7 @@ jvm类加载器加载.class字节码文件，执行类里的逻辑代码。
 
 4.tomcat支持jsp修改后不重启就生效，jsp也要编译为.class文件运行。
 
-如果使用默认的加载机制，不符合1，默认的加载机制无法加载相同类库的两个不同版本，只根据全限定类型加载。符合2。不符合3。不符合4,jsp重新编译后，因为.class已经加载到内存中，因为累加器没变，所以不会有任何变化。
+如果使用默认的加载机制，不符合1，默认的加载机制无法加载相同类库的两个不同版本，只根据全限定类型加载。符合2。不符合3。不符合4,jsp重新编译后，因为.class已经加载到内存中，因为类加载器没变，所以不会有任何变化。
 
 tomcat实现的策略:
 
@@ -79,7 +79,7 @@ Shared ClassLoader在Common ClassLoader下层，各个Webapp共享的类加载�
 
 WebApp ClassLoader在Shared ClassLoader下层,各Webapp私有的类加载器，只对当前Webapp可见。
 
-Jsp ClassLoader在WebApp下层，每个jsp文件对应一个jsp类加载器。tomcat检测到jsp文件发生修改时，会丢弃当前的jap ClassLoader，重新创建一个新的jsp类加载器加载jsp文件。
+Jsp ClassLoader在WebApp下层，每个jsp文件对应一个jsp类加载器。tomcat检测到jsp文件发生修改时，会丢弃当前的jsp ClassLoader，重新创建一个新的jsp类加载器加载jsp文件。
 
 tomcat类加载顺序：
 
@@ -169,6 +169,14 @@ Java判断对象是否存活使用的是可达性分析，通过判断是否有G
 遍历所有对象，把存活的对象移动到一侧，然后清除另一侧。
 
 时间换空间，大部分对象生命周期长，如果使用复制算法，将浪费一半内存，内存利用率低。
+
+
+
+**复制为什么比标记清除/整理快**
+
+复制算法，从gcRoot出发，找到所有存活的对象，直接复制
+
+标记整理算法，从gcRoot出发，标记所有对象，然后遍历移动，或清除
 
 
 
