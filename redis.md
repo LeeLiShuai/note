@@ -8,7 +8,15 @@ set  key  value,value最大能存储512M
 
 限定ip访问次数，session共享
 
+数据结构：
 
+​	简单动态字符串
+
+​		int len; 保存的字符串的长度
+
+​		int free; 未使用的字节长度
+
+​		char buf[];保存字符串的数组
 
 **Hash**
 
@@ -16,7 +24,9 @@ hset key field value
 
 缓存对象信息
 
+数据结构：压缩列表或字典
 
+​			
 
 **List**
 
@@ -26,13 +36,25 @@ rpush key value1 value2 ... valueN
 
 列表信息
 
+数据机构：列表元素长度小于64个字节，个数少于512个时使用压缩列表，其余情况使用双向链表
 
+​	无环双向链表
+
+​		ListNode *head;头结点
+
+​		ListNode *tile;尾节点
+
+​		long len;节点数量
+
+​	压缩列表
 
 **Set**
 
 sadd key value1 value2 ... valueN
 
 收藏夹，去重
+
+数据结构：整数集合和字典
 
 
 
@@ -42,7 +64,9 @@ zadd key socre1 value1 ... scoreN vluaeN
 
 排行榜
 
+数据结构：压缩列表，字典，跳表
 
+​		跳表
 
 **持久化**
 
@@ -250,3 +274,50 @@ redis的lru维护一个大小为16的候选池，根据最近访问时间进行�
 
 
 
+**分布式锁**
+
+1.set key value ex  nx
+
+  可能会锁丢失，主节点未同步到从节点时，主节点宕机，从节点变为主节点，按时没有锁数据
+
+2.RedLock
+
+3.Zookeeper
+
+
+
+**redis实现分布式限流**
+
+zset实现，
+
+
+
+**redis实现消息队列**
+
+list作为队列，rpush生产消息，lpop消费消息。lpop没有消息，可以sleep一会重试
+
+也可以blpop，在没有消息的时候阻塞，知道有消息
+
+生产一次消费多次，pub/sub主题订阅者模式，在消费者下线的情况下，生产的消息会丢失
+
+
+
+**redis实现延迟队列**
+
+sortedset，内容作为key，时间戳作为score, zrangebyscore获取n秒之前的数据。
+
+
+
+**redis事务**
+
+事务中的命令串行执行，事务执行期间，redis不再为其他请求提供服务，保证了原子性
+
+redis事务中的命令执行失败后， 后续命令会继续执行，不会回滚
+
+multi开启事务
+
+exec提交
+
+discard回滚
+
+ 
