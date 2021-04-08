@@ -112,6 +112,28 @@ Spring容器需要知道什么bean以及容器如何使用依赖注入来将bean
 
 
 
+**解决循环依赖**
+
+解决循环依赖只能解决setter方法注入的情况，构造器注入无法解决，或者非单列模式无法解决。
+
+setter方法注入情况可以解决是因为，可以先调用不需要参数的构造函数，然后在设置其他属性。
+
+singletonObjects,并发map类型，一级缓存，存放完全初始化好的bean
+
+earlySingletonObjects,hashmap,二级缓存，原始的bean,没有填充属性
+
+singletonFactories，hashmap,三级缓存,存放bean工厂对象
+
+getSingletion：首先从一级缓存中获取，如果一级缓存中没有且对应的bean正在创建中，则将一级缓存整个map使用synchronized锁住，然后从二级缓存中获取，如果二级缓存中也没有且允许从二级缓存中获取(一个参数控制，单例时可以)，就从三级缓存中获取，如果获取到了，就将缓存提升至二级缓存，并从三级缓存中删除。
+
+getBean->doGetBean->createBean->doCreateBean->createBeanInstance->populateBean->initializeBean
+
+createBeanInstance这一步创建一个原始引用，并放入三级缓存中。假设a依赖b，b依赖a.
+
+a初始化时，到populateBean这一步是会调用getBean(b).b也会这一流程，在populateBean的时候调用getSingleton(a),此时返回a的初始引用，b就能完成初始化。然后返回给a的初始化流程，然后a也能完成初始化。
+
+
+
 **AOP**
 
 面向切面编程
